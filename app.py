@@ -25,6 +25,7 @@ import open3d as o3d  # Make sure to import open3d if used
 from stereo_zed import stereo_calibrate, calculate_translation_distance, calculate_rotation_angle, load_intrinsics_from_conf
 from zed_sn import capture_zed_camera, open_zed_camera
 from merge_point_clouds_icp import algorithm
+from czyszczenie import remove_isolated_points
 
 
 
@@ -171,6 +172,11 @@ class PointCloudApp(QMainWindow):
         self.filter_cloud_button.setFont(button_font)
         self.filter_cloud_button.clicked.connect(self.filter_and_show_point_cloud)
         layout.addWidget(self.filter_cloud_button)
+
+        self.remove_outliers_button = QPushButton("wyczyść chmurę")
+        self.remove_outliers_button.setFont(button_font)
+        self.remove_outliers_button.clicked.connect(self.remove_outlisers_from_cloude)
+        layout.addWidget(self.remove_outliers_button)
 
         self.visualization_tab.setLayout(layout)
 
@@ -688,6 +694,35 @@ class PointCloudApp(QMainWindow):
         # Wywołaj funkcję filtrującą
         filter_point_cloud(ply_file, output_file, max_distance)
 
+        # Wczytaj przefiltrowaną chmurę punktów
+        self.pcd = o3d.io.read_point_cloud(output_file)
+
+        # Aktualizuj wizualizację
+        self.vis.clear_geometries()
+        self.vis.add_geometry(self.pcd)
+
+        # Zaktualizuj pasek stanu
+        self.status_bar.showMessage(f"Chmura punktów została przefiltrowana i zapisana do {output_file}")
+
+    def remove_outlisers_from_cloude(self):
+        ply_file, _ = QFileDialog.getOpenFileName(self, "Wybierz plik .ply do zmiany granulacji", "",
+                                                  "PLY Files (*.ply)",
+                                                  options=QFileDialog.Option(QFileDialog.DontUseNativeDialog))
+        if not ply_file:
+            QMessageBox.critical(self, "Błąd", "Nie wybrano pliku .ply.")
+            return
+        output_file, _ = QFileDialog.getSaveFileName(self, "Zapisz chmurę punktów po zmianie granulacji", "",
+                                                     "PLY Files (*.ply)",
+                                                     options=QFileDialog.Option(QFileDialog.DontUseNativeDialog))
+        if not output_file.lower().endswith(".ply"):
+            output_file += ".ply"
+        if not output_file:
+            return
+
+        cloud = load_point_cloud(ply_file)
+        # Wywołaj funkcję filtrującą
+        cloud = remove_isolated_points(cloud,nb_neighbors=80, std_ratio=0.9)
+        save_point_cloud_to_ply(cloud,output_file)
         # Wczytaj przefiltrowaną chmurę punktów
         self.pcd = o3d.io.read_point_cloud(output_file)
 
