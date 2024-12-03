@@ -2,8 +2,37 @@ import pyzed.sl as sl
 import open3d as o3d
 import numpy as np
 import time
+import json
 
-def save_and_display_point_cloud(zed, filename):
+# Funkcja zapisująca parametry intrystyczne kamery do pliku JSON
+def save_intrinsics_to_json(zed, filename):
+    """ Zapisuje parametry intrystyczne kamery ZED do pliku JSON """
+    print("Saving intrinsics to JSON...")
+
+    # Pobranie parametrów intrystycznych
+    camera_info = zed.get_camera_information()
+    intrinsics = camera_info.calibration_parameters.left_cam
+
+    # Przygotowanie danych do zapisania
+    intrinsics_data = {
+        "fx": intrinsics.fx,
+        "fy": intrinsics.fy,
+        "cx": intrinsics.cx,
+        "cy": intrinsics.cy,
+        "coeffs": [
+            intrinsics.k[0], intrinsics.k[1], intrinsics.k[2], intrinsics.k[3], intrinsics.k[4]
+        ]
+    }
+
+    # Zapisanie parametrów do pliku JSON
+    with open(filename, 'w') as json_file:
+        json.dump(intrinsics_data, json_file, indent=4)
+
+    print(f"Intrinsics saved to {filename}")
+
+
+# Funkcja zapisująca chmurę punktów i wyświetlająca ją w oknie 3D
+def save_and_display_point_cloud(zed, filename, intrinsics_filename):
     """ Funkcja zapisująca chmurę punktów i wyświetlająca ją w oknie 3D """
     print("Saving and displaying Point Cloud...")
 
@@ -49,12 +78,16 @@ def save_and_display_point_cloud(zed, filename):
             # Wyświetlenie chmury punktów
             o3d.visualization.draw_geometries([o3d_pc])
 
+            # Zapis parametrów intrystycznych do pliku JSON
+            save_intrinsics_to_json(zed, intrinsics_filename)
+
         else:
             print("Nie udało się pobrać chmury punktów.")
     else:
         print("Błąd podczas grabowania obrazu z kamery.")
 
-def main():
+
+def start_zed_cameras():
     # Inicjalizacja kamery ZED
     zed = sl.Camera()
 
@@ -74,12 +107,14 @@ def main():
     # Czekaj chwilę, aby kamera miała czas na inicjalizację
     time.sleep(1)
 
-    # Pobranie i zapisanie chmury punktów
+    # Pobranie i zapisanie chmury punktów oraz parametrów intrystycznych
     filename = "point_cloud.ply"  # Możesz zmienić nazwę i format pliku
-    save_and_display_point_cloud(zed, filename)
+    intrinsics_filename = "intrinsics.json"  # Plik z zapisanymi parametrami intrystycznymi
+    save_and_display_point_cloud(zed, filename, intrinsics_filename)
 
     # Zamykanie kamery
     zed.close()
 
+
 if __name__ == "__main__":
-    main()
+    start_zed_cameras()

@@ -10,6 +10,7 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QWindow
 from PySide6.QtGui import QFont
 import win32gui
+import open3d as o3d  # Make sure to import open3d if used
 from cloud_filtering import filter_point_cloud
 
 
@@ -21,7 +22,6 @@ from parameters import get_intrinsics_from_bag
 from merge_clouds import load_point_cloud, apply_transformation, merge_point_clouds, load_calibration_data
 from granularity import zmien_granulacje_chmury_punktow
 from stereo import load_intrinsics, stereo_calibrate, calculate_translation_distance, calculate_rotation_angle
-import open3d as o3d  # Make sure to import open3d if used
 from stereo_zed import stereo_calibrate, calculate_translation_distance, calculate_rotation_angle, load_intrinsics_from_conf
 from zed_sn import capture_zed_camera, open_zed_camera
 from merge_point_clouds_icp import algorithm
@@ -641,14 +641,6 @@ class PointCloudApp(QMainWindow):
         threading.Thread(target=capture_zed_camera, args=(serial, main_folder, disable_depth_flag)).start()
 
     def start_dual_zed_cameras(self):
-        # Pobranie numerów seryjnych kamer
-        serial1, ok1 = QInputDialog.getInt(self, "Numer seryjny kamery 1", "Podaj numer seryjny pierwszej kamery:")
-        if not ok1:
-            return
-
-        serial2, ok2 = QInputDialog.getInt(self, "Numer seryjny kamery 2", "Podaj numer seryjny drugiej kamery:")
-        if not ok2:
-            return
 
         # Tworzenie folderu głównego dla zapisanych obrazów
         base_name, ok = QInputDialog.getText(self, "Nazwa folderu", "Podaj nazwę głównego folderu dla obrazów:")
@@ -659,7 +651,7 @@ class PointCloudApp(QMainWindow):
         os.makedirs(main_folder, exist_ok=True)
 
         # Uruchomienie przechwytywania w wątku
-        threading.Thread(target=open_zed_camera, args=(serial1, serial2)).start()
+        threading.Thread(target=open_zed_camera, args=base_name).start()
 
 
     def filter_and_show_point_cloud(self):
