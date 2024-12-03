@@ -10,7 +10,7 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QWindow
 from PySide6.QtGui import QFont
 import win32gui
-from cloude_filtering import filter_point_cloud
+from cloud_filtering import filter_point_cloud
 
 
 # Importowanie funkcji z plików
@@ -25,7 +25,7 @@ import open3d as o3d  # Make sure to import open3d if used
 from stereo_zed import stereo_calibrate, calculate_translation_distance, calculate_rotation_angle, load_intrinsics_from_conf
 from zed_sn import capture_zed_camera, open_zed_camera
 from merge_point_clouds_icp import algorithm
-from czyszczenie import remove_isolated_points
+from cloud_cleaning import remove_isolated_points
 
 
 
