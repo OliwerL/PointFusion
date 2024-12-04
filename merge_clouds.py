@@ -2,7 +2,7 @@ import time
 import numpy as np
 import open3d as o3d
 import json
-import cv2
+
 
 def load_point_cloud(ply_filename):
     return o3d.io.read_point_cloud(ply_filename)

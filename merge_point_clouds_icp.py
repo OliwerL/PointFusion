@@ -1,7 +1,7 @@
 import numpy as np
 import open3d as o3d
 import json
-from granularity import zmien_granulacje_chmury_punktow
+
 
 def load_point_cloud(ply_filename):
     return o3d.io.read_point_cloud(ply_filename)
@@ -63,6 +63,7 @@ def algorithm(cloud1, cloud2, calibration_data1, output_filename, voxel_size=0.1
     chmura1.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=30))
     chmura2.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=30))
 
+
     def extract_center_region(point_cloud, center, radius):
         points = np.asarray(point_cloud.points)
         distances = np.linalg.norm(points - center, axis=1)
@@ -75,7 +76,7 @@ def algorithm(cloud1, cloud2, calibration_data1, output_filename, voxel_size=0.1
     center2 = chmura2.get_center()
 
     # Wyodrębnij centralne regiony
-    radius = 0.5  # Promień w jednostkach chmury punktów
+    radius = 0.5  #
     chmura1_center = extract_center_region(chmura1, center1, radius)
     chmura2_center = extract_center_region(chmura2, center2, radius)
 

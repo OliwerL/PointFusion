@@ -13,14 +13,13 @@ import win32gui
 import open3d as o3d  # Make sure to import open3d if used
 from cloud_filtering import filter_point_cloud
 
-
-# Importowanie funkcji z plików
+# Import functions from files
 from bag_to_ply import extract_point_cloud_from_bag, convert_to_open3d_point_cloud, save_point_cloud_to_ply
 from photo import capture_photos
 from multiphoto import multi_camera
 from parameters import get_intrinsics_from_bag
 from merge_clouds import load_point_cloud, apply_transformation, merge_point_clouds, load_calibration_data
-from granularity import zmien_granulacje_chmury_punktow
+from granularity import change_granularity_of_point_cloud
 from stereo import load_intrinsics, stereo_calibrate, calculate_translation_distance, calculate_rotation_angle
 from stereo_zed import stereo_calibrate, calculate_translation_distance, calculate_rotation_angle, load_intrinsics_from_conf
 from zed_sn import capture_zed_camera, open_zed_camera
@@ -34,63 +33,63 @@ class PointCloudApp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Point Cloud GUI")
-        # Zmienna przechowująca wybór kamery (0 = ZED, 1 = RealSense)
+        # Variable storing the camera selection (0 = ZED, 1 = RealSense)
         self.camera_type = self.choose_camera_type()
 
-        # Jeśli użytkownik anulował wybór, zamknij aplikację
+        # If the user canceled the selection, close the application
         if self.camera_type is None:
             sys.exit()
 
         self.setWindowTitle("Point Cloud GUI")
         self.setGeometry(100, 100, 1600, 800)
 
-        # Konfiguracja głównego layoutu
+        # Configure the main layout
         main_widget = QWidget()
         main_layout = QHBoxLayout()
         main_widget.setLayout(main_layout)
         self.setCentralWidget(main_widget)
 
-        # Tworzenie zakładek i przycisków po lewej stronie
+        # Create tabs and buttons on the left side
         self.tabs = QTabWidget()
         self.tabs.setStyleSheet("""
                     QTabBar::tab {
                         font-size: 9pt;
                     }
                     QTabBar {
-                        qproperty-expanding: 1;  /* Wymusza rozciąganie zakładek na całą szerokość */
+                        qproperty-expanding: 1;  /* Forces tabs to stretch to full width */
                     }
                 """)
         self.create_tabs()
         main_layout.addWidget(self.tabs, stretch=1)
 
-        # Konfiguracja Open3D po prawej stronie
-        self.pcd = o3d.io.read_point_cloud("filtered_output.ply")  # Domyślnie załadowana chmura punktów
+        # Configure Open3D on the right side
+        self.pcd = o3d.io.read_point_cloud("filtered_output.ply")  # Default loaded point cloud
         self.vis = o3d.visualization.Visualizer()
         self.vis.create_window()
         self.vis.add_geometry(self.pcd)
 
-        # Pobranie uchwytu okna Open3D do integracji z PySide6
+        # Get the Open3D window handle for integration with PySide6
         hwnd = win32gui.FindWindowEx(0, 0, None, "Open3D")
         self.o3d_window = QWindow.fromWinId(hwnd)
         self.o3d_container = self.createWindowContainer(self.o3d_window, main_widget)
         main_layout.addWidget(self.o3d_container, stretch=2)
 
-        # Timer do odświeżania wizualizacji Open3D
+        # Timer to refresh Open3D visualization
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_vis)
-        self.timer.start(16)  # Odświeżanie co ~16 ms (około 60 FPS)
+        self.timer.start(16)  # Refresh every ~16 ms (approximately 60 FPS)
 
-        # Pasek stanu
+        # Status bar
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
-        self.status_bar.showMessage("Gotowy")
+        self.status_bar.showMessage("Ready")
 
     def choose_camera_type(self):
         items = ["ZED", "RealSense"]
         camera_choice, ok = QInputDialog.getItem(
             self,
-            "Wybór kamery",
-            "Wybierz typ kamery, z której chcesz korzystać:",
+            "Camera Selection",
+            "Choose the type of camera you want to use:",
             items,
             0,
             False,
@@ -100,70 +99,65 @@ class PointCloudApp(QMainWindow):
         else:
             return None
 
+    #  all tabs to QTabWidget
     def create_tabs(self):
-        """Dodaje wszystkie zakładki do QTabWidget."""
-        # Inicjalizacja poszczególnych zakładek
+
+        # Initialize individual tabs
         self.processing_tab = QWidget()
         self.visualization_tab = QWidget()
         self.camera_tab = QWidget()
         self.segmentation_tab = QWidget()
         self.calibration_tab = QWidget()
 
-        # Ustawienia zakładek
+        # Set up tabs
         self.create_processing_tab()
         self.create_visualization_tab()
         self.create_camera_tab()
-        # self.create_segmentation_tab()
         self.create_calibration_tab()
 
-        # Dodanie zakładek do QTabWidget
-        self.tabs.addTab(self.processing_tab, "Przetwarzanie")
-        self.tabs.addTab(self.visualization_tab, "Wizualizacja")
-        self.tabs.addTab(self.camera_tab, "Kamery")
-        # self.tabs.addTab(self.segmentation_tab, "Segmentacja")
-        self.tabs.addTab(self.calibration_tab, "Kalibracja")
-
-
-
+        # Add tabs to QTabWidget
+        self.tabs.addTab(self.processing_tab, "Processing")
+        self.tabs.addTab(self.visualization_tab, "Visualization")
+        self.tabs.addTab(self.camera_tab, "Cameras")
+        self.tabs.addTab(self.calibration_tab, "Calibration")
 
     def create_processing_tab(self):
         layout = QVBoxLayout()
         button_font = QFont('Helvetica', 11)
 
         if self.camera_type == 1:  # RealSense
-            self.bag_to_ply_button = QPushButton("Konwertuj BAG na PLY")
+            self.bag_to_ply_button = QPushButton("Convert BAG to PLY")
             self.bag_to_ply_button.setFont(button_font)
             self.bag_to_ply_button.clicked.connect(self.process_bag_to_ply)
             layout.addWidget(self.bag_to_ply_button)
 
-            self.intrinsics_button = QPushButton("Zapisz parametry intrynsyczne")
+            self.intrinsics_button = QPushButton("Save Intrinsic Parameters")
             self.intrinsics_button.setFont(button_font)
             self.intrinsics_button.clicked.connect(self.save_intrinsics)
             layout.addWidget(self.intrinsics_button)
 
-            self.merge_clouds_button = QPushButton("Połącz chmury punktów")
+            self.merge_clouds_button = QPushButton("Merge Point Clouds")
             self.merge_clouds_button.setFont(button_font)
             self.merge_clouds_button.clicked.connect(self.start_merge_point_clouds)
             layout.addWidget(self.merge_clouds_button)
 
-            self.download_param_realsense = QPushButton("Pobierz chmure wraz z parametrami")
+            self.download_param_realsense = QPushButton("Download Cloud with Parameters")
             self.download_param_realsense.setFont(button_font)
             self.download_param_realsense.clicked.connect(self.get_cloud_and_intristics_realsense)
             layout.addWidget(self.download_param_realsense)
 
-        self.change_granularity_button = QPushButton("Zmień granulację chmury punktów")
+        self.change_granularity_button = QPushButton("Change Point Cloud Granularity")
         self.change_granularity_button.setFont(button_font)
         self.change_granularity_button.clicked.connect(self.start_change_granularity)
         layout.addWidget(self.change_granularity_button)
 
-        if self.camera_type == 0:
-
-            self.merge_clouds_icp_button = QPushButton("Połącz chmury punktów z ICP")
+        if self.camera_type == 0:  # ZED
+            self.merge_clouds_icp_button = QPushButton("Merge Point Clouds with ICP")
             self.merge_clouds_icp_button.setFont(button_font)
             self.merge_clouds_icp_button.clicked.connect(self.start_merge_point_clouds_with_icp)
             layout.addWidget(self.merge_clouds_icp_button)
 
-            self.download_param_zed = QPushButton("Pobierz chmure wraz z parametrami")
+            self.download_param_zed = QPushButton("Download Cloud with Parameters")
             self.download_param_zed.setFont(button_font)
             self.download_param_zed.clicked.connect(self.get_cloud_and_intriscs_zed)
             layout.addWidget(self.download_param_zed)
@@ -174,18 +168,18 @@ class PointCloudApp(QMainWindow):
         layout = QVBoxLayout()
         button_font = QFont('Helvetica', 11)
 
-        self.show_cloud_button = QPushButton("Wyświetl chmurę")
+        self.show_cloud_button = QPushButton("Show Point Cloud")
         self.show_cloud_button.setFont(button_font)
         self.show_cloud_button.clicked.connect(self.show_point_cloud)
         layout.addWidget(self.show_cloud_button)
 
-        # Przycisk do filtrowania chmury
-        self.filter_cloud_button = QPushButton("Obetnij chmurę")
+        # Button to filter the cloud
+        self.filter_cloud_button = QPushButton("Crop Cloud")
         self.filter_cloud_button.setFont(button_font)
         self.filter_cloud_button.clicked.connect(self.filter_and_show_point_cloud)
         layout.addWidget(self.filter_cloud_button)
 
-        self.remove_outliers_button = QPushButton("wyczyść chmurę")
+        self.remove_outliers_button = QPushButton("Clean Cloud")
         self.remove_outliers_button.setFont(button_font)
         self.remove_outliers_button.clicked.connect(self.remove_outlisers_from_cloude)
         layout.addWidget(self.remove_outliers_button)
@@ -197,159 +191,171 @@ class PointCloudApp(QMainWindow):
         button_font = QFont('Helvetica', 11)
 
         if self.camera_type == 1:  # RealSense
-            self.camera_button = QPushButton("Uruchom pojedynczą kamerę")
+            self.camera_button = QPushButton("Start Single Camera")
             self.camera_button.setFont(button_font)
             self.camera_button.clicked.connect(self.start_camera)
             layout.addWidget(self.camera_button)
 
-            self.multi_camera_button = QPushButton("Uruchom dwie kamery")
+            self.multi_camera_button = QPushButton("Start Dual Cameras")
             self.multi_camera_button.setFont(button_font)
             self.multi_camera_button.clicked.connect(self.start_multi_camera_capture)
             layout.addWidget(self.multi_camera_button)
 
-        if self.camera_type == 0:
-            self.single_zed_button = QPushButton("Uruchom pojedynczą kamerę")
+        if self.camera_type == 0:  # ZED
+            self.single_zed_button = QPushButton("Start Single ZED Camera")
             self.single_zed_button.setFont(button_font)
             self.single_zed_button.clicked.connect(self.start_single_zed_camera)
             layout.addWidget(self.single_zed_button)
 
-            self.dual_zed_button = QPushButton("Uruchom dwie kamery")
+            self.dual_zed_button = QPushButton("Start Dual ZED Cameras")
             self.dual_zed_button.setFont(button_font)
             self.dual_zed_button.clicked.connect(self.start_dual_zed_cameras)
             layout.addWidget(self.dual_zed_button)
 
         self.camera_tab.setLayout(layout)
 
-
     def create_calibration_tab(self):
         layout = QVBoxLayout()
         button_font = QFont('Helvetica', 11)
 
         if self.camera_type == 1:  # RealSense
-            self.stereo_calibration_button = QPushButton("Kalibracja stereo")
+            self.stereo_calibration_button = QPushButton("Stereo Calibration")
             self.stereo_calibration_button.setFont(button_font)
             self.stereo_calibration_button.clicked.connect(self.start_stereo_calibration)
             layout.addWidget(self.stereo_calibration_button)
-        if self.camera_type == 0:  # RealSense
-            self.zed_calibration_button = QPushButton("Kalibracja stereo")
+        if self.camera_type == 0:  # ZED
+            self.zed_calibration_button = QPushButton("Stereo Calibration for ZED")
             self.zed_calibration_button.setFont(button_font)
             self.zed_calibration_button.clicked.connect(self.start_zed_stereo_calibration)
             layout.addWidget(self.zed_calibration_button)
 
         self.calibration_tab.setLayout(layout)
 
+    # Refreshes the Open3D visualization
     def update_vis(self):
-        """Odświeża wizualizację Open3D."""
+
         self.vis.poll_events()
         self.vis.update_renderer()
 
+
+    # Updates the status bar with the given message
     def update_status(self, message):
+
         self.status_bar.showMessage(message)
         QApplication.processEvents()
 
     def process_bag_to_ply(self):
-        # Wybór pliku .bag
-        bag_path, _ = QFileDialog.getOpenFileName(self, "Wybierz plik .bag", "", "BAG Files (*.bag)",
+        # Select .bag file
+        bag_path, _ = QFileDialog.getOpenFileName(self, "Select .bag File", "", "BAG Files (*.bag)",
                                                   options=QFileDialog.Option(QFileDialog.DontUseNativeDialog))
         if bag_path:
-            # Użytkownik wybiera nazwę pliku .ply do zapisu
-            ply_filename, _ = QFileDialog.getSaveFileName(self, "Zapisz plik .ply", "", "PLY Files (*.ply)",
+            # User selects the name of the .ply file to save
+            ply_filename, _ = QFileDialog.getSaveFileName(self, "Save .ply File", "", "PLY Files (*.ply)",
                                                           options=QFileDialog.Option(QFileDialog.DontUseNativeDialog))
             if ply_filename:
                 if not ply_filename.lower().endswith(".ply"):
                     ply_filename += ".ply"
-                # Aktualizacja paska stanu
-                self.update_status("Przetwarzanie pliku .bag na .ply...")
-                # Wywołanie funkcji z bag_to_ply.py
+                # Update status bar
+                self.update_status("Processing .bag file to .ply...")
+                # Call function from bag_to_ply.py
                 color_frame, depth_frame = extract_point_cloud_from_bag(bag_path)
                 self.point_cloud = convert_to_open3d_point_cloud(color_frame, depth_frame)
                 save_point_cloud_to_ply(self.point_cloud, ply_filename)
-                self.update_status(f"Chmura punktów zapisana do pliku: {ply_filename}")
+                self.update_status(f"Point cloud saved to file: {ply_filename}")
 
-                # Wyświetlenie informacji o sukcesie
-                QMessageBox.information(self, "Sukces", f"Chmura punktów zapisana do pliku: {ply_filename}")
+                # Display success message
+                QMessageBox.information(self, "Success", f"Point cloud saved to file: {ply_filename}")
 
+    # Allows the user to select a .ply file and displays it in the Open3D window.
     def show_point_cloud(self):
-        """Pozwala wybrać plik .ply i wyświetla go w oknie Open3D."""
-        ply_path, _ = QFileDialog.getOpenFileName(self, "Wybierz plik .ply", "", "PLY Files (*.ply)",
+
+        ply_path, _ = QFileDialog.getOpenFileName(self, "Select .ply File", "", "PLY Files (*.ply)",
                                                   options=QFileDialog.Option(QFileDialog.DontUseNativeDialog))
         if ply_path:
-            self.update_status("Ładowanie wybranej chmury punktów...")
+            self.update_status("Loading selected point cloud...")
             new_pcd = o3d.io.read_point_cloud(ply_path)
-            self.vis.clear_geometries()  # Usuwa poprzednią chmurę punktów
-            self.vis.add_geometry(new_pcd)  # Dodaje nową chmurę punktów
-            self.pcd = new_pcd  # Zaktualizowanie self.pcd
-            self.update_status(f"Wyświetlono chmurę punktów: {ply_path}")
+            self.vis.clear_geometries()  # Remove the previous point cloud
+            self.vis.add_geometry(new_pcd)  # Add the new point cloud
+            self.pcd = new_pcd  # Update self.pcd
+            self.update_status(f"Displayed point cloud: {ply_path}")
         else:
-            QMessageBox.critical(self, "Błąd", "Nie wybrano pliku .ply")
+            QMessageBox.critical(self, "Error", "No .ply file selected")
 
+    # Starts capturing photos from a single camera.
     def start_camera(self):
-        QMessageBox.information(self, "Informacja", "Klawisz 's' - Zapisz zdjęcie\nKlawisz 'ESC' - Wyjście z podglądu kamery")
 
-        camera_index, ok = QInputDialog.getInt(self, "Indeks kamery", "Podaj indeks kamery (np. 0, 1, 2):", min=0)
+        QMessageBox.information(self, "Information", "Press 's' to save a photo\nPress 'ESC' to exit camera preview")
+
+        camera_index, ok = QInputDialog.getInt(self, "Camera Index", "Enter camera index (e.g., 0, 1, 2):", min=0)
         if not ok:
             return
 
-        base_name, ok = QInputDialog.getText(self, "Nazwa folderu", "Podaj nazwę folderu dla zdjęć:")
+        base_name, ok = QInputDialog.getText(self, "Folder Name", "Enter folder name for photos:")
         if not ok or not base_name:
             return
 
-        output_folder = f"{base_name}_ZDJ"
+        output_folder = f"{base_name}_PHOTOS"
         os.makedirs(output_folder, exist_ok=True)
 
-        self.update_status("Uruchamianie kamery...")
+        self.update_status("Starting camera...")
 
         threading.Thread(target=capture_photos, args=(camera_index, output_folder)).start()
 
+    # Saves the intrinsic parameters from a .bag file to a JSON file.
     def save_intrinsics(self):
-        bag_path, _ = QFileDialog.getOpenFileName(self, "Wybierz plik .bag", "", "BAG Files (*.bag)",
-                                                          options=QFileDialog.Option(QFileDialog.DontUseNativeDialog))
+
+        bag_path, _ = QFileDialog.getOpenFileName(self, "Select .bag File", "", "BAG Files (*.bag)",
+                                                  options=QFileDialog.Option(QFileDialog.DontUseNativeDialog))
         if bag_path:
-            json_filename, _ = QFileDialog.getSaveFileName(self, "Zapisz plik .json", "", "JSON Files (*.json)",
+            json_filename, _ = QFileDialog.getSaveFileName(self, "Save .json File", "", "JSON Files (*.json)",
                                                           options=QFileDialog.Option(QFileDialog.DontUseNativeDialog))
             if json_filename:
                 if not json_filename.lower().endswith(".json"):
                     json_filename += ".json"
-                self.update_status("Zapisywanie parametrów intrynsycznych...")
+                self.update_status("Saving intrinsic parameters...")
                 get_intrinsics_from_bag(bag_path, json_filename)
-                self.update_status(f"Parametry intrynsyczne zapisane do pliku: {json_filename}")
-                QMessageBox.information(self, "Sukces", f"Parametry intrynsyczne zapisane do pliku: {json_filename}")
+                self.update_status(f"Intrinsic parameters saved to file: {json_filename}")
+                QMessageBox.information(self, "Success", f"Intrinsic parameters saved to file: {json_filename}")
 
+    # Starts capturing photos from multiple cameras.
     def start_multi_camera_capture(self):
-        indices_input, ok = QInputDialog.getText(self, "Indeksy kamer", "Podaj indeksy kamer, oddzielone przecinkami (np. 0,1,2):")
+
+        indices_input, ok = QInputDialog.getText(self, "Camera Indices", "Enter camera indices separated by commas (e.g., 0,1,2):")
         if not ok or not indices_input:
             return
 
         try:
             camera_indices = [int(idx.strip()) for idx in indices_input.split(",")]
         except ValueError:
-            QMessageBox.critical(self, "Błąd", "Nieprawidłowy format indeksów kamer.")
+            QMessageBox.critical(self, "Error", "Invalid camera indices format.")
             return
 
-        base_name, ok = QInputDialog.getText(self, "Nazwa folderu", "Podaj nazwę folderu dla zdjęć z wielokamerowego przechwytywania:")
+        base_name, ok = QInputDialog.getText(self, "Folder Name", "Enter folder name for multi-camera capture photos:")
         if not ok or not base_name:
             return
 
-        output_folder = f"{base_name}_MultiCamera_ZDJ"
+        output_folder = f"{base_name}_MultiCamera_PHOTOS"
         os.makedirs(output_folder, exist_ok=True)
 
-        self.update_status("Uruchamianie wielokamerowego przechwytywania...")
+        self.update_status("Starting multi-camera capture...")
 
         threading.Thread(target=multi_camera, args=(camera_indices, output_folder)).start()
 
+    # Merges multiple point clouds based on user input.
     def start_merge_point_clouds(self):
-        num_clouds, ok = QInputDialog.getInt(self, "Liczba chmur", "Podaj liczbę chmur do połączenia:", 2, 2, 100)
+
+        num_clouds, ok = QInputDialog.getInt(self, "Number of Clouds", "Enter the number of point clouds to merge:", 2, 2, 100)
 
         if not ok:
             return
 
         ply_filenames = []
         for i in range(num_clouds):
-            ply_filename, _ = QFileDialog.getOpenFileName(self, f"Wybierz plik .ply dla chmury {i + 1}", "",
+            ply_filename, _ = QFileDialog.getOpenFileName(self, f"Select .ply File for Cloud {i + 1}", "",
                                                           "PLY Files (*.ply)",
                                                           options=QFileDialog.Option(QFileDialog.DontUseNativeDialog))
             if not ply_filename:
-                QMessageBox.critical(self, "Błąd", "Nie wybrano pliku PLY dla jednej z chmur.")
+                QMessageBox.critical(self, "Error", "No PLY file selected for one of the clouds.")
                 return
             ply_filenames.append(ply_filename)
 
@@ -357,22 +363,22 @@ class PointCloudApp(QMainWindow):
         for i in range(1, num_clouds):
             json_filename, _ = QFileDialog.getOpenFileName(
                 self,
-                f"Wybierz plik kalibracyjny .json dla transformacji chmury {i + 1} do chmury 1",
+                f"Select calibration .json file for transforming Cloud {i + 1} to Cloud 1",
                 "",
                 "JSON Files (*.json)",
                 options=QFileDialog.Option(QFileDialog.DontUseNativeDialog)
             )
             if not json_filename:
-                QMessageBox.critical(self, "Błąd", "Nie wybrano pliku JSON dla jednej z transformacji.")
+                QMessageBox.critical(self, "Error", "No JSON file selected for one of the transformations.")
                 return
             calibration_files.append(json_filename)
 
         clouds = []
-        # Zapytanie o granularność dla każdej chmury
+        # Ask for voxel size for each cloud
         voxel_size, ok = QInputDialog.getDouble(
             self,
-            f"Rozmiar voxela dla chmury {i + 1}",
-            "Podaj rozmiar voxela dla tej chmury (np. 0.01, zakres 0.001 - 0.1):",
+            "Voxel Size",
+            "Enter voxel size for the clouds (e.g., 0.01, range 0.001 - 0.1):",
             0.01, 0.001, 0.1, 3
         )
         if not ok:
@@ -382,10 +388,10 @@ class PointCloudApp(QMainWindow):
             point_cloud = load_point_cloud(ply_filename)
 
             try:
-                point_cloud = point_cloud.voxel_down_sample(voxel_size)  # Zmiana granularności dla tej chmury
-                self.update_status(f"Granulacja chmury {i + 1} ustawiona na {voxel_size}")
+                point_cloud = point_cloud.voxel_down_sample(voxel_size)  # Change granularity for this cloud
+                self.update_status(f"Granularity for cloud {i + 1} set to {voxel_size}")
             except Exception as e:
-                QMessageBox.critical(self, "Błąd", f"Nie udało się zmienić granulacji dla chmury {i + 1}: {e}")
+                QMessageBox.critical(self, "Error", f"Failed to change granularity for cloud {i + 1}: {e}")
                 return
 
             if i == 0:
@@ -395,11 +401,10 @@ class PointCloudApp(QMainWindow):
                 transformed_cloud = apply_transformation(point_cloud, R, T)
                 clouds.append(transformed_cloud)
 
-        # Po zmianie granularności połącz chmury
+        # After changing granularity, merge the clouds
         merged_cloud = merge_point_clouds(clouds)
 
-
-        merged_filename, _ = QFileDialog.getSaveFileName(self, "Zapisz połączoną chmurę punktów", "",
+        merged_filename, _ = QFileDialog.getSaveFileName(self, "Save Merged Point Cloud", "",
                                                          "PLY Files (*.ply)",
                                                          options=QFileDialog.Option(QFileDialog.DontUseNativeDialog))
         if not merged_filename.lower().endswith(".ply"):
@@ -408,51 +413,53 @@ class PointCloudApp(QMainWindow):
             return
 
         o3d.io.write_point_cloud(merged_filename, merged_cloud)
-        self.update_status(f"Chmury punktów połączone i zapisane do pliku: {merged_filename}")
-        QMessageBox.information(self, "Sukces", f"Chmury punktów połączone i zapisane do pliku: {merged_filename}")
+        self.update_status(f"Point clouds merged and saved to file: {merged_filename}")
+        QMessageBox.information(self, "Success", f"Point clouds merged and saved to file: {merged_filename}")
 
-        # Zaktualizuj wizualizację
-        self.update_status("Aktualizowanie wizualizacji...")
-        self.vis.clear_geometries()  # Usunięcie starej chmury punktów z wizualizatora
-        self.vis.add_geometry(merged_cloud)  # Dodanie nowej, zmergowanej chmury
-        self.pcd = merged_cloud  # Zaktualizowanie referencji do chmury punktów
-        self.update_status("Gotowy")
+        # Update visualization
+        self.update_status("Updating visualization...")
+        self.vis.clear_geometries()  # Remove old point cloud from the visualizer
+        self.vis.add_geometry(merged_cloud)  # Add new merged point cloud
+        self.pcd = merged_cloud  # Update reference to the point cloud
+        self.update_status("Ready")
 
+    # Merges two point clouds using the ICP algorithm.
     def start_merge_point_clouds_with_icp(self):
-        # Pobierz pliki chmur punktów
-        cloud1_file,_ = QFileDialog.getOpenFileName(self, "Wybierz pierwszą chmurę punktów (PLY)", "",
+
+        # Select point cloud files
+        cloud1_file, _ = QFileDialog.getOpenFileName(self, "Select First Point Cloud (PLY)", "",
                                                      "PLY Files (*.ply)", options=QFileDialog.Option(QFileDialog.DontUseNativeDialog))
         if not cloud1_file:
-            QMessageBox.critical(self, "Błąd", "Nie wybrano pierwszej chmury punktów.")
+            QMessageBox.critical(self, "Error", "No first point cloud selected.")
             return
 
-        cloud2_file, _ = QFileDialog.getOpenFileName(self, "Wybierz drugą chmurę punktów (PLY)", "",
+        cloud2_file, _ = QFileDialog.getOpenFileName(self, "Select Second Point Cloud (PLY)", "",
                                                      "PLY Files (*.ply)", options=QFileDialog.Option(QFileDialog.DontUseNativeDialog))
         if not cloud2_file:
-            QMessageBox.critical(self, "Błąd", "Nie wybrano drugiej chmury punktów.")
+            QMessageBox.critical(self, "Error", "No second point cloud selected.")
             return
 
-        # Pobierz plik kalibracyjny
-        calibration_file, _ = QFileDialog.getOpenFileName(self, "Wybierz plik kalibracyjny (JSON)", "",
+        # Select calibration file
+        calibration_file, _ = QFileDialog.getOpenFileName(self, "Select Calibration File (JSON)", "",
                                                           "JSON Files (*.json)", options=QFileDialog.Option(QFileDialog.DontUseNativeDialog))
         if not calibration_file:
-            QMessageBox.critical(self, "Błąd", "Nie wybrano pliku kalibracyjnego.")
+            QMessageBox.critical(self, "Error", "No calibration file selected.")
             return
 
-        # Pobierz parametry granularności i promienia regionu centralnego
-        voxel_size, ok = QInputDialog.getDouble(self, "Rozmiar voxela",
-                                                "Podaj rozmiar voxela (np. 0.01, zakres 0.001 - 0.1):", 0.01, 0.001,
+        # Get voxel size and region radius parameters
+        voxel_size, ok = QInputDialog.getDouble(self, "Voxel Size",
+                                                "Enter voxel size (e.g., 0.01, range 0.001 - 0.1):", 0.01, 0.001,
                                                 0.1, 3)
         if not ok:
             return
 
-        self.update_status("Przetwarzanie i łączenie chmur punktów z użyciem ICP...")
-        # Zapisanie wynikowej chmury
-        merged_filename, _ = QFileDialog.getSaveFileName(self, "Zapisz połączoną chmurę punktów do pliku", "",
+        self.update_status("Processing and merging point clouds using ICP...")
+        # Save the resulting cloud
+        merged_filename, _ = QFileDialog.getSaveFileName(self, "Save Merged Point Cloud to File", "",
                                                          "PLY Files (*.ply)",
                                                          options=QFileDialog.Option(QFileDialog.DontUseNativeDialog))
         if not merged_filename:
-            QMessageBox.critical(self, "Błąd", "Nie wybrano pliku do zapisu.")
+            QMessageBox.critical(self, "Error", "No file selected for saving.")
             return
         if not merged_filename.lower().endswith(".ply"):
             merged_filename += ".ply"
@@ -461,79 +468,81 @@ class PointCloudApp(QMainWindow):
             cloud2 = load_point_cloud(cloud2_file)
             cloud1 = cloud1.voxel_down_sample(voxel_size)
             cloud2 = cloud2.voxel_down_sample(voxel_size)
-            algorithm(cloud1, cloud2, calibration_file, merged_filename,voxel_size)
+            algorithm(cloud1, cloud2, calibration_file, merged_filename, voxel_size)
 
-
-            QMessageBox.information(self, "Sukces", f"Połączona chmura punktów została zapisana w: {merged_filename}")
+            QMessageBox.information(self, "Success", f"Merged point cloud saved at: {merged_filename}")
             resulting_cloud = load_point_cloud(merged_filename)
-            # Aktualizacja wizualizacji
+            # Update visualization
             self.vis.clear_geometries()
             self.vis.add_geometry(resulting_cloud)
             self.pcd = resulting_cloud
-            self.update_status("Gotowy")
+            self.update_status("Ready")
 
         except Exception as e:
-            self.update_status("Wystąpił błąd podczas łączenia chmur punktów.")
-            QMessageBox.critical(self, "Błąd", f"Wystąpił błąd: {e}")
+            self.update_status("An error occurred while merging point clouds.")
+            QMessageBox.critical(self, "Error", f"An error occurred: {e}")
 
+    # Changes the granularity of a point cloud based on user input.
     def start_change_granularity(self):
-        ply_file, _ = QFileDialog.getOpenFileName(self, "Wybierz plik .ply do zmiany granulacji", "", "PLY Files (*.ply)",
-                                                          options=QFileDialog.Option(QFileDialog.DontUseNativeDialog))
+
+        ply_file, _ = QFileDialog.getOpenFileName(self, "Select .ply File to Change Granularity", "", "PLY Files (*.ply)",
+                                                  options=QFileDialog.Option(QFileDialog.DontUseNativeDialog))
         if not ply_file:
-            QMessageBox.critical(self, "Błąd", "Nie wybrano pliku .ply.")
+            QMessageBox.critical(self, "Error", "No .ply file selected.")
             return
 
-        voxel_size, ok = QInputDialog.getDouble(self, "Rozmiar przestrzeni zajmowanej przez jeden voxel", "Podaj rozmiar voksela z zakresu 0.001 - 0.1 :", 0.01, 0.001, 0.1, 3)
+        voxel_size, ok = QInputDialog.getDouble(self, "Voxel Size", "Enter voxel size (range 0.001 - 0.1):", 0.01, 0.001, 0.1, 3)
 
         if not ok:
             return
 
-        output_file, _ = QFileDialog.getSaveFileName(self, "Zapisz chmurę punktów po zmianie granulacji", "", "PLY Files (*.ply)",
-                                                          options=QFileDialog.Option(QFileDialog.DontUseNativeDialog))
+        output_file, _ = QFileDialog.getSaveFileName(self, "Save Point Cloud with Changed Granularity", "", "PLY Files (*.ply)",
+                                                     options=QFileDialog.Option(QFileDialog.DontUseNativeDialog))
         if not output_file.lower().endswith(".ply"):
             output_file += ".ply"
         if not output_file:
             return
 
-        self.update_status("Zmiana granulacji chmury punktów...")
+        self.update_status("Changing point cloud granularity...")
 
         try:
-            zmien_granulacje_chmury_punktow(ply_file, voxel_size, output_file)
-            self.update_status(f"Granulacja zmieniona i zapisana jako {output_file}")
-            QMessageBox.information(self, "Sukces", f"Granulacja zmieniona i zapisana jako {output_file}")
+            change_granularity_of_point_cloud(ply_file, voxel_size, output_file)
+            self.update_status(f"Granularity changed and saved as {output_file}")
+            QMessageBox.information(self, "Success", f"Granularity changed and saved as {output_file}")
         except Exception as e:
-            self.update_status("Wystąpił błąd podczas zmiany granulacji.")
-            QMessageBox.critical(self, "Błąd", f"Wystąpił błąd podczas zmiany granulacji: {e}")
+            self.update_status("An error occurred while changing granularity.")
+            QMessageBox.critical(self, "Error", f"An error occurred while changing granularity: {e}")
 
-
+    # Performs stereo calibration based on user-selected parameters and images.
     def start_stereo_calibration(self):
-        json1, _ = QFileDialog.getOpenFileName(self, "Wybierz plik JSON z parametrami pierwszej kamery", "", "JSON Files (*.json)",
-                                                          options=QFileDialog.Option(QFileDialog.DontUseNativeDialog))
-        json2, _ = QFileDialog.getOpenFileName(self, "Wybierz plik JSON z parametrami drugiej kamery", "", "JSON Files (*.json)",
-                                                          options=QFileDialog.Option(QFileDialog.DontUseNativeDialog))
+
+        json1, _ = QFileDialog.getOpenFileName(self, "Select JSON File for First Camera Parameters", "", "JSON Files (*.json)",
+                                              options=QFileDialog.Option(QFileDialog.DontUseNativeDialog))
+        json2, _ = QFileDialog.getOpenFileName(self, "Select JSON File for Second Camera Parameters", "", "JSON Files (*.json)",
+                                              options=QFileDialog.Option(QFileDialog.DontUseNativeDialog))
         if not json1 or not json2:
-            QMessageBox.critical(self, "Błąd", "Nie wybrano plików JSON.")
+            QMessageBox.critical(self, "Error", "No JSON files selected.")
             return
 
         intrinsics1 = load_intrinsics(json1)
         intrinsics2 = load_intrinsics(json2)
 
-        images1_folder = QFileDialog.getExistingDirectory(self, "Wybierz folder z obrazami dla kamery 1",
+        images1_folder = QFileDialog.getExistingDirectory(self, "Select Image Folder for Camera 1",
                                                           options=QFileDialog.Option(QFileDialog.DontUseNativeDialog))
-        images2_folder = QFileDialog.getExistingDirectory(self, "Wybierz folder z obrazami dla kamery 2",
+        images2_folder = QFileDialog.getExistingDirectory(self, "Select Image Folder for Camera 2",
                                                           options=QFileDialog.Option(QFileDialog.DontUseNativeDialog))
         if not images1_folder or not images2_folder:
-            QMessageBox.critical(self, "Błąd", "Nie wybrano folderów z obrazami.")
+            QMessageBox.critical(self, "Error", "No image folders selected.")
             return
 
         images1_pattern = os.path.join(images1_folder, "*.png")
         images2_pattern = os.path.join(images2_folder, "*.png")
 
-        square_size, ok = QInputDialog.getDouble(self, "Rozmiar kwadratu", "Podaj rozmiar kwadratu wzorca w mm:", 1.0, 0.01, 100.0, 2)
+        square_size, ok = QInputDialog.getDouble(self, "Square Size", "Enter the size of the pattern square in mm:", 1.0, 0.01, 100.0, 2)
         if not ok:
             return
 
-        self.update_status("Kalibracja stereo...")
+        self.update_status("Performing stereo calibration...")
 
         try:
             R, T = stereo_calibrate(images1_pattern, images2_pattern, (9, 6), intrinsics1["color"], intrinsics2["color"], square_size)
@@ -541,7 +550,7 @@ class PointCloudApp(QMainWindow):
                 translation_distance = calculate_translation_distance(T)
                 rotation_angle = calculate_rotation_angle(R)
 
-                QMessageBox.information(self, "Kalibracja zakończona", f"Odległość: {translation_distance:.2f} mm\nKąt obrotu: {rotation_angle:.2f} stopni")
+                QMessageBox.information(self, "Calibration Completed", f"Distance: {translation_distance:.2f} mm\nRotation Angle: {rotation_angle:.2f} degrees")
 
                 stereo_calibration_data = {
                     "R": R.tolist(),
@@ -550,41 +559,43 @@ class PointCloudApp(QMainWindow):
                     "Rotation Angle": rotation_angle
                 }
 
-                output_stereo_json_filename, _ = QFileDialog.getSaveFileName(self, "Zapisz dane kalibracji stereo", "", "JSON Files (*.json)",
-                                                          options=QFileDialog.Option(QFileDialog.DontUseNativeDialog))
+                output_stereo_json_filename, _ = QFileDialog.getSaveFileName(self, "Save Stereo Calibration Data", "", "JSON Files (*.json)",
+                                                                            options=QFileDialog.Option(QFileDialog.DontUseNativeDialog))
                 if output_stereo_json_filename:
                     with open(output_stereo_json_filename, 'w') as json_file:
                         json.dump(stereo_calibration_data, json_file, indent=4)
-                    self.update_status(f"Dane kalibracyjne zapisane do pliku: {output_stereo_json_filename}")
-                    QMessageBox.information(self, "Sukces", f"Dane kalibracyjne zapisane do pliku: {output_stereo_json_filename}")
+                    self.update_status(f"Calibration data saved to file: {output_stereo_json_filename}")
+                    QMessageBox.information(self, "Success", f"Calibration data saved to file: {output_stereo_json_filename}")
             else:
-                self.update_status("Kalibracja stereo nie powiodła się.")
-                QMessageBox.critical(self, "Błąd", "Kalibracja stereo nie powiodła się.")
+                self.update_status("Stereo calibration failed.")
+                QMessageBox.critical(self, "Error", "Stereo calibration failed.")
         except Exception as e:
-            self.update_status("Wystąpił błąd podczas kalibracji.")
-            QMessageBox.critical(self, "Błąd", f"Wystąpił błąd: {e}")
+            self.update_status("An error occurred during calibration.")
+            QMessageBox.critical(self, "Error", f"An error occurred: {e}")
 
+    # Performs stereo calibration for ZED cameras based on user-selected parameters and images.
     def start_zed_stereo_calibration(self):
-        left_conf, _ = QFileDialog.getOpenFileName(self, "Wybierz plik .conf dla lewej kamery", "",
+
+        left_conf, _ = QFileDialog.getOpenFileName(self, "Select .conf File for Left Camera", "",
                                                    "CONF Files (*.conf)")
-        right_conf, _ = QFileDialog.getOpenFileName(self, "Wybierz plik .conf dla prawej kamery", "",
+        right_conf, _ = QFileDialog.getOpenFileName(self, "Select .conf File for Right Camera", "",
                                                     "CONF Files (*.conf)")
         if not left_conf or not right_conf:
-            QMessageBox.critical(self, "Błąd", "Nie wybrano plików .conf dla obu kamer.")
+            QMessageBox.critical(self, "Error", "No .conf files selected for both cameras.")
             return
 
-        images1_folder = QFileDialog.getExistingDirectory(self, "Wybierz folder z obrazami dla lewej kamery")
-        images2_folder = QFileDialog.getExistingDirectory(self, "Wybierz folder z obrazami dla prawej kamery")
+        images1_folder = QFileDialog.getExistingDirectory(self, "Select Image Folder for Left Camera")
+        images2_folder = QFileDialog.getExistingDirectory(self, "Select Image Folder for Right Camera")
         if not images1_folder or not images2_folder:
-            QMessageBox.critical(self, "Błąd", "Nie wybrano folderów z obrazami.")
+            QMessageBox.critical(self, "Error", "No image folders selected.")
             return
 
-        square_size, ok = QInputDialog.getDouble(self, "Rozmiar kwadratu", "Podaj rozmiar kwadratu w mm:", 1.0, 0.01,
+        square_size, ok = QInputDialog.getDouble(self, "Square Size", "Enter the size of the square in mm:", 1.0, 0.01,
                                                  100.0, 2)
         if not ok:
             return
 
-        self.update_status("Kalibracja stereo dla kamer ZED...")
+        self.update_status("Performing stereo calibration for ZED cameras...")
 
         intrinsics1 = load_intrinsics_from_conf(left_conf, "LEFT_CAM_HD")
         intrinsics2 = load_intrinsics_from_conf(right_conf, "RIGHT_CAM_HD")
@@ -598,8 +609,8 @@ class PointCloudApp(QMainWindow):
                 translation_distance = calculate_translation_distance(T)
                 rotation_angle = calculate_rotation_angle(R)
 
-                QMessageBox.information(self, "Kalibracja ZED zakończona",
-                                        f"Odległość: {translation_distance:.2f} mm\nKąt obrotu: {rotation_angle:.2f} stopni")
+                QMessageBox.information(self, "ZED Calibration Completed",
+                                        f"Distance: {translation_distance:.2f} mm\nRotation Angle: {rotation_angle:.2f} degrees")
 
                 stereo_calibration_data = {
                     "R": R.tolist(),
@@ -608,75 +619,77 @@ class PointCloudApp(QMainWindow):
                     "Rotation Angle": rotation_angle
                 }
 
-                output_stereo_json_filename, _ = QFileDialog.getSaveFileName(self, "Zapisz dane kalibracji ZED stereo",
+                output_stereo_json_filename, _ = QFileDialog.getSaveFileName(self, "Save ZED Stereo Calibration Data",
                                                                              "", "JSON Files (*.json)")
                 if output_stereo_json_filename:
                     with open(output_stereo_json_filename, 'w') as json_file:
                         json.dump(stereo_calibration_data, json_file, indent=4)
-                    self.update_status(f"Dane kalibracyjne ZED zapisane do pliku: {output_stereo_json_filename}")
-                    QMessageBox.information(self, "Sukces",
-                                            f"Dane kalibracyjne ZED zapisane do pliku: {output_stereo_json_filename}")
+                    self.update_status(f"ZED calibration data saved to file: {output_stereo_json_filename}")
+                    QMessageBox.information(self, "Success",
+                                            f"ZED calibration data saved to file: {output_stereo_json_filename}")
             else:
-                QMessageBox.critical(self, "Błąd", "Kalibracja stereo ZED nie powiodła się.")
+                QMessageBox.critical(self, "Error", "ZED stereo calibration failed.")
         except Exception as e:
-            QMessageBox.critical(self, "Błąd", f"Wystąpił błąd: {e}")
+            QMessageBox.critical(self, "Error", f"An error occurred: {e}")
 
+    # Starts capturing from a single ZED camera based on user input.
     def start_single_zed_camera(self):
-        # Pobranie numeru seryjnego kamery
-        serial, ok = QInputDialog.getInt(self, "Numer seryjny kamery", "Podaj numer seryjny kamery ZED:")
+
+        # Get the serial number of the camera
+        serial, ok = QInputDialog.getInt(self, "Camera Serial Number", "Enter the serial number of the ZED camera:")
         if not ok:
             return
 
-        # Wyłączenie trybu głębi (opcjonalne)
+        # Optionally disable depth mode
         disable_depth, ok = QInputDialog.getItem(
             self,
-            "Tryb głębi",
-            "Czy wyłączyć tryb głębi?",
-            ["Nie", "Tak"],
+            "Depth Mode",
+            "Do you want to disable depth mode?",
+            ["No", "Yes"],
             0,
             False,
         )
         if not ok:
             return
 
-        disable_depth_flag = disable_depth == "Tak"
+        disable_depth_flag = disable_depth == "Yes"
 
-        # Tworzenie folderu dla zapisanych obrazów
-        base_name, ok = QInputDialog.getText(self, "Nazwa folderu", "Podaj nazwę głównego folderu dla obrazów:")
+        # Create folder for saved images
+        base_name, ok = QInputDialog.getText(self, "Folder Name", "Enter the main folder name for images:")
         if not ok or not base_name:
             return
 
         main_folder = os.path.join(base_name, "ZED_Captures")
         os.makedirs(main_folder, exist_ok=True)
 
-        # Uruchomienie kamery w wątku
+        # Start the camera in a separate thread
         threading.Thread(target=capture_zed_camera, args=(serial, main_folder, disable_depth_flag)).start()
 
+    # Starts capturing from dual ZED cameras.
     def start_dual_zed_cameras(self):
 
-        # Tworzenie folderu głównego dla zapisanych obrazów
-        base_name, ok = QInputDialog.getText(self, "Nazwa folderu", "Podaj nazwę głównego folderu dla obrazów:")
+        # Create the main folder for saved images
+        base_name, ok = QInputDialog.getText(self, "Folder Name", "Enter the main folder name for images:")
         if not ok or not base_name:
             return
 
         main_folder = os.path.join(base_name, "Dual_ZED_Captures")
         os.makedirs(main_folder, exist_ok=True)
 
-        # Uruchomienie przechwytywania w wątku
-        threading.Thread(target=open_zed_camera, args=base_name).start()
+        # Start capturing in a separate thread
+        threading.Thread(target=open_zed_camera, args=(base_name,)).start()
 
-
+    # Calls the function to filter the point cloud and displays it in Open3D.
     def filter_and_show_point_cloud(self):
-        """
-        Funkcja wywołująca filtrowanie chmury punktów i wyświetlanie jej w Open3D.
-        """
-        ply_file, _ = QFileDialog.getOpenFileName(self, "Wybierz plik .ply do zmiany granulacji", "",
+
+
+        ply_file, _ = QFileDialog.getOpenFileName(self, "Select .ply File to Crop", "",
                                                   "PLY Files (*.ply)",
                                                   options=QFileDialog.Option(QFileDialog.DontUseNativeDialog))
         if not ply_file:
-            QMessageBox.critical(self, "Błąd", "Nie wybrano pliku .ply.")
+            QMessageBox.critical(self, "Error", "No .ply file selected.")
             return
-        output_file, _ = QFileDialog.getSaveFileName(self, "Zapisz chmurę punktów po zmianie granulacji", "",
+        output_file, _ = QFileDialog.getSaveFileName(self, "Save Cropped Point Cloud", "",
                                                      "PLY Files (*.ply)",
                                                      options=QFileDialog.Option(QFileDialog.DontUseNativeDialog))
         if not output_file.lower().endswith(".ply"):
@@ -684,38 +697,40 @@ class PointCloudApp(QMainWindow):
         if not output_file:
             return
 
-        # Ustal maksymalną odległość (można też pozwolić użytkownikowi na jej wprowadzenie)
+        # Set maximum distance (you can also allow the user to input this)
         max_distance, ok = QInputDialog.getDouble(self,
-                                                  "Maksymalna odległość",
-                                                  "Podaj maksymalną odległość (zakres 0.5 - 3.0):",
-                                                  1.7,  # Domyślna wartość
-                                                  0.5,  # Minimalna wartość
-                                                  3.0,  # Maksymalna wartość
+                                                  "Maximum Distance",
+                                                  "Enter maximum distance (range 0.5 - 3.0):",
+                                                  1.7,  # Default value
+                                                  0.5,  # Minimum value
+                                                  3.0,  # Maximum value
                                                   2)
         if not ok:
             return
 
-        # Wywołaj funkcję filtrującą
+        # Call the filtering function
         filter_point_cloud(ply_file, output_file, max_distance)
 
-        # Wczytaj przefiltrowaną chmurę punktów
+        # Load the filtered point cloud
         self.pcd = o3d.io.read_point_cloud(output_file)
 
-        # Aktualizuj wizualizację
+        # Update visualization
         self.vis.clear_geometries()
         self.vis.add_geometry(self.pcd)
 
-        # Zaktualizuj pasek stanu
-        self.status_bar.showMessage(f"Chmura punktów została przefiltrowana i zapisana do {output_file}")
+        # Update status bar
+        self.status_bar.showMessage(f"Point cloud filtered and saved to {output_file}")
 
+    # Removes outliers from the point cloud and updates the visualization
     def remove_outlisers_from_cloude(self):
-        ply_file, _ = QFileDialog.getOpenFileName(self, "Wybierz plik .ply do zmiany granulacji", "",
+
+        ply_file, _ = QFileDialog.getOpenFileName(self, "Select .ply File to Clean", "",
                                                   "PLY Files (*.ply)",
                                                   options=QFileDialog.Option(QFileDialog.DontUseNativeDialog))
         if not ply_file:
-            QMessageBox.critical(self, "Błąd", "Nie wybrano pliku .ply.")
+            QMessageBox.critical(self, "Error", "No .ply file selected.")
             return
-        output_file, _ = QFileDialog.getSaveFileName(self, "Zapisz chmurę punktów po zmianie granulacji", "",
+        output_file, _ = QFileDialog.getSaveFileName(self, "Save Cleaned Point Cloud", "",
                                                      "PLY Files (*.ply)",
                                                      options=QFileDialog.Option(QFileDialog.DontUseNativeDialog))
         if not output_file.lower().endswith(".ply"):
@@ -724,44 +739,47 @@ class PointCloudApp(QMainWindow):
             return
 
         cloud = load_point_cloud(ply_file)
-        # Wywołaj funkcję filtrującą
-        cloud = remove_isolated_points(cloud,nb_neighbors=80, std_ratio=0.9)
-        save_point_cloud_to_ply(cloud,output_file)
-        # Wczytaj przefiltrowaną chmurę punktów
+        # Call the function to remove outliers
+        cloud = remove_isolated_points(cloud, nb_neighbors=80, std_ratio=0.9)
+        save_point_cloud_to_ply(cloud, output_file)
+        # Load the cleaned point cloud
         self.pcd = o3d.io.read_point_cloud(output_file)
 
-        # Aktualizuj wizualizację
+        # Update visualization
         self.vis.clear_geometries()
         self.vis.add_geometry(self.pcd)
 
-        # Zaktualizuj pasek stanu
-        self.status_bar.showMessage(f"Chmura punktów została przefiltrowana i zapisana do {output_file}")
+        # Update status bar
+        self.status_bar.showMessage(f"Point cloud cleaned and saved to {output_file}")
 
-
+    # Captures and processes intrinsic parameters for RealSense cameras
     def get_cloud_and_intristics_realsense(self):
 
-        output_ply_filename, _ = QFileDialog.getSaveFileName(self, "Zapisz chmurę punktów (PLY)", "",
-                                                     "PLY Files (*.ply)",
-                                                     options=QFileDialog.Option(QFileDialog.DontUseNativeDialog))
+        output_ply_filename, _ = QFileDialog.getSaveFileName(self, "Save Point Cloud (PLY)", "",
+                                                             "PLY Files (*.ply)",
+                                                             options=QFileDialog.Option(QFileDialog.DontUseNativeDialog))
         if not output_ply_filename.lower().endswith(".ply"):
             output_ply_filename += ".ply"
         if not output_ply_filename:
             return
 
-        json1, _ = QFileDialog.getSaveFileName(self, "Zapisz plik JSON dla kamery RealSense", "",
+        json1, _ = QFileDialog.getSaveFileName(self, "Save JSON File for RealSense Camera", "",
                                                "JSON Files (*.json)",
                                                options=QFileDialog.Option(QFileDialog.DontUseNativeDialog))
-        json1, _ = QFileDialog.getSaveFileName(self, "Zapisz plik JSON dla kamery ZED", "",
+        json2, _ = QFileDialog.getSaveFileName(self, "Save JSON File for ZED Camera", "",
                                                "JSON Files (*.json)",
                                                options=QFileDialog.Option(QFileDialog.DontUseNativeDialog))
         if not json1.lower().endswith(".json"):
             json1 += ".json"
         if not json1:
             return
-        capture_and_process_intrinsics(output_ply_filename,json1)
+        capture_and_process_intrinsics(output_ply_filename, json1)
+
+
+    # Captures and processes intrinsic parameters for ZED cameras
     def get_cloud_and_intriscs_zed(self):
 
-        output_ply_filename, _ = QFileDialog.getSaveFileName(self, "Zapisz chmurę punktów (PLY)", "",
+        output_ply_filename, _ = QFileDialog.getSaveFileName(self, "Save Point Cloud (PLY)", "",
                                                              "PLY Files (*.ply)",
                                                              options=QFileDialog.Option(
                                                                  QFileDialog.DontUseNativeDialog))
@@ -770,8 +788,7 @@ class PointCloudApp(QMainWindow):
         if not output_ply_filename:
             return
 
-
-        json1, _ = QFileDialog.getSaveFileName(self, "Zapisz plik JSON dla kamery ZED", "",
+        json1, _ = QFileDialog.getSaveFileName(self, "Save JSON File for ZED Camera", "",
                                                "JSON Files (*.json)",
                                                options=QFileDialog.Option(QFileDialog.DontUseNativeDialog))
         if not json1.lower().endswith(".json"):
@@ -779,6 +796,7 @@ class PointCloudApp(QMainWindow):
         if not json1:
             return
         start_zed_cameras(output_ply_filename, json1)
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

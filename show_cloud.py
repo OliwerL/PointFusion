@@ -1,32 +1,38 @@
 import open3d as o3d
-import numpy as np
 
+
+# Visualizes a point cloud from a PLY file
 def visualize_point_cloud(ply_file):
-    # Wczytaj chmurę punktów z pliku PLY
     pcd = o3d.io.read_point_cloud(ply_file)
 
-    # Sprawdź, czy chmura punktów została poprawnie wczytana
+    # Check if the point cloud was loaded correctly
     if pcd.is_empty():
-        print("Chmura punktów jest pusta.")
+        print("The point cloud is empty.")
         return
 
-
-    # Wyświetl chmurę punktów
+    # Display the point cloud
     o3d.visualization.draw_geometries([pcd])
 
 if __name__ == "__main__":
-    # Ścieżka do pliku PLY
+    # Path to the PLY files
     # ply_file = 'prawyPLY.ply'
     ply_file = 'te_dwie_co_chciales.ply'
     ply_file1 = 'te_dwie_co_chciales_test.ply'
     # ply_file2 = '44_realsens.ply'
-    chmura_punktow = o3d.io.read_point_cloud(ply_file)
-    visualize_point_cloud(ply_file)
-    chmura_punktow1 = o3d.io.read_point_cloud(ply_file1)
-    visualize_point_cloud(ply_file1)
-    # chmura_punktow2 = o3d.io.read_point_cloud(ply_file2)
-    # visualize_point_cloud(ply_file2)
-    print(f"Liczba punktów w oryginalnej chmurze: {len(chmura_punktow.points)}")
-    print(f"Liczba punktów w oryginalnej chmurze: {len(chmura_punktow1.points)}")
-    # print(f"Liczba punktów w oryginalnej chmurze: {len(chmura_punktow2.points)}")
 
+    # Load and visualize the first point cloud
+    point_cloud = o3d.io.read_point_cloud(ply_file)
+    visualize_point_cloud(ply_file)
+
+    # Load and visualize the second point cloud
+    point_cloud1 = o3d.io.read_point_cloud(ply_file1)
+    visualize_point_cloud(ply_file1)
+
+    # Load and visualize the third point cloud (commented out)
+    # point_cloud2 = o3d.io.read_point_cloud(ply_file2)
+    # visualize_point_cloud(ply_file2)
+
+    # Print the number of points in the original point clouds
+    print(f"Number of points in the original point cloud: {len(point_cloud.points)}")
+    print(f"Number of points in the original point cloud: {len(point_cloud1.points)}")
+    # print(f"Number of points in the original point cloud: {len(point_cloud2.points)}")

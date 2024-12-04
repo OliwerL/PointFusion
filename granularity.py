@@ -1,23 +1,25 @@
 import open3d as o3d
 
+# Changes the granularity of a point cloud by applying voxel downsampling
+def change_granularity_of_point_cloud(input_filename, voxel_size, output_filename):
 
-def zmien_granulacje_chmury_punktow(nazwa_pliku, rozmiar_voxela, nowa_nazwa_pliku):
-    # Wczytaj chmurę punktów z pliku .ply
-    chmura_punktow = o3d.io.read_point_cloud(nazwa_pliku)
-    print(f"Liczba punktów przed zmniejszeniem granulacji: {len(chmura_punktow.points)}")
+    # Load the point cloud from the .ply file
+    point_cloud = o3d.io.read_point_cloud(input_filename)
+    print(f"Number of points before downsampling: {len(point_cloud.points)}")
 
-    # Zastosuj Voxel Downsampling do zmniejszenia liczby punktów
-    chmura_punktow_zmieniona = chmura_punktow.voxel_down_sample(voxel_size=rozmiar_voxela)
-    print(f"Liczba punktów po zmniejszeniu granulacji: {len(chmura_punktow_zmieniona.points)}")
+    # Apply Voxel Downsampling to reduce the number of points
+    downsampled_cloud = point_cloud.voxel_down_sample(voxel_size=voxel_size)
+    print(f"Number of points after downsampling: {len(downsampled_cloud.points)}")
 
-    # Zapisz nową chmurę punktów do pliku .ply
-    o3d.io.write_point_cloud(nowa_nazwa_pliku, chmura_punktow_zmieniona)
-    print(f"Nowa chmura punktów zapisana jako {nowa_nazwa_pliku}")
+    # Save the downsampled point cloud to a new .ply file
+    o3d.io.write_point_cloud(output_filename, downsampled_cloud)
+    print(f"Downsampled point cloud saved as {output_filename}")
+
 
 if __name__ == "__main__":
-    # Użycie funkcji:
-    nazwa_pliku = "srodek.ply"
-    rozmiar_voxela = 0.01  # Ustaw rozmiar voxela w zależności od potrzeb
-    nowa_nazwa_pliku = "srodek_orignal.ply"
+    # Example usage
+    input_filename = "srodek.ply"
+    voxel_size = 0.01  # Set voxel size as needed
+    output_filename = "srodek_original.ply"
 
-    zmien_granulacje_chmury_punktow(nazwa_pliku, rozmiar_voxela, nowa_nazwa_pliku)
+    change_granularity_of_point_cloud(input_filename, voxel_size, output_filename)

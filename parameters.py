@@ -1,14 +1,17 @@
 import pyrealsense2 as rs
 import json
 
+
+# Extracts intrinsic parameters from a RealSense .bag file and saves them to a JSON file
 def get_intrinsics_from_bag(bag_filename, output_json_filename):
+
     pipeline = rs.pipeline()
     config = rs.config()
     config.enable_device_from_file(bag_filename)
 
     profile = pipeline.start(config)
 
-    # Pobierz profil strumienia dla kamery kolorowej i głębi
+    # Get stream profiles for color and depth cameras
     color_stream = profile.get_stream(rs.stream.color)
     depth_stream = profile.get_stream(rs.stream.depth)
 
@@ -36,12 +39,13 @@ def get_intrinsics_from_bag(bag_filename, output_json_filename):
         }
     }
 
+    # Save intrinsic parameters to JSON file
     with open(output_json_filename, 'w') as json_file:
         json.dump(intrinsics_data, json_file, indent=4)
 
     pipeline.stop()
 
-    # Drukowanie parametrów do weryfikacji
+    # Print parameters for verification
     print(f"Intrinsics saved to {output_json_filename}")
     print("Color Intrinsics:")
     print(f"Width: {color_intrinsics.width}")
@@ -61,9 +65,9 @@ def get_intrinsics_from_bag(bag_filename, output_json_filename):
     print(f"cy: {depth_intrinsics.ppy}")
     print(f"Distortion Coefficients: {depth_intrinsics.coeffs}")
 
-# Przykład użycia
 if __name__ == "__main__":
-    bag_name="srodek"
-    bag_filename = bag_name + ".bag"
-    output_json_filename = bag_name + "JSON.json"
+    # Example usage
+    bag_name = "srodek"
+    bag_filename = f"{bag_name}.bag"
+    output_json_filename = f"{bag_name}JSON.json"
     get_intrinsics_from_bag(bag_filename, output_json_filename)

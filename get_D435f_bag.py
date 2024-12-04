@@ -4,27 +4,32 @@ import open3d as o3d
 import json
 import time
 
+
+# Captures point clouds and intrinsic parameters from RealSense cameras,
+# saves the point cloud to a PLY file, and intrinsic parameters to a JSON file.
+
 def capture_and_process_intrinsics(output_ply_filename, output_json_filename, duration=10):
-    # Inicjalizacja pipeline
+
+    # Initialize RealSense pipeline
     pipeline = rs.pipeline()
     config = rs.config()
 
-    # Włączanie strumieni RGB i głębi
-    config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)  # Strumień RGB
-    config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)   # Strumień głębi
+    # Enable RGB and Depth streams
+    config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)  # RGB stream
+    config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)    # Depth stream
 
-    # Uruchomienie pipeline
+    # Start the pipeline
     profile = pipeline.start(config)
 
-    # Pobieranie strumienia kamer
+    # Get camera streams
     color_stream = profile.get_stream(rs.stream.color)
     depth_stream = profile.get_stream(rs.stream.depth)
 
-    # Pobieranie parametrów intrystycznych dla obu kamer
+    # Get intrinsic parameters for both color and depth streams
     color_intrinsics = color_stream.as_video_stream_profile().get_intrinsics()
     depth_intrinsics = depth_stream.as_video_stream_profile().get_intrinsics()
 
-    # Zapisujemy intrinseki do pliku JSON
+    # Prepare intrinsic parameters data
     intrinsics_data = {
         "color": {
             "width": color_intrinsics.width,
@@ -46,72 +51,72 @@ def capture_and_process_intrinsics(output_ply_filename, output_json_filename, du
         }
     }
 
-    # Zapisujemy intrinseki do pliku JSON
+    # Save intrinsic parameters to JSON file
     with open(output_json_filename, 'w') as json_file:
         json.dump(intrinsics_data, json_file, indent=4)
 
-    print(f"Intrinseki zapisane w pliku: {output_json_filename}")
+    print(f"Intrinsics saved to {output_json_filename}")
 
-    # Inicjalizacja chmury punktów
+    # Initialize point cloud object
     pc = rs.pointcloud()
     align_to = rs.stream.color
     align = rs.align(align_to)
 
-    # Rozpoczynamy pomiar czasu
+    # Start capturing frames for the specified duration
     start_time = time.time()
 
     try:
-        # Pętla do zbierania i przetwarzania klatek przez określony czas
         while True:
-            # Sprawdzamy, czy minął określony czas (np. 10 sekund)
+            # Check if the specified duration has elapsed
             elapsed_time = time.time() - start_time
             if elapsed_time > duration:
-                print(f"Czas nagrywania minął ({duration} sekund). Zakończono zbieranie danych.")
+                print(f"Recording time elapsed ({duration} seconds). Stopped data collection.")
                 break
 
-            # Czekamy na nowe klatki
+            # Wait for the next set of frames
             frames = pipeline.wait_for_frames()
 
-            # Wyrównanie strumieni głębokości i kolorowego
+            # Align the depth frame to the color frame
             aligned_frames = align.process(frames)
 
-            # Pobieramy klatki
+            # Extract aligned depth and color frames
             depth_frame = aligned_frames.get_depth_frame()
             color_frame = aligned_frames.get_color_frame()
 
             if not depth_frame or not color_frame:
                 continue
 
-            # Mapowanie głębi na obraz RGB
+            # Map depth data to the color frame
             pc.map_to(color_frame)
             pointcloud = pc.calculate(depth_frame)
 
-            # Przekształcenie chmury punktów na tablicę NumPy
-            vertices = np.asanyarray(pointcloud.get_vertices())  # Współrzędne punktów 3D (X, Y, Z)
-            colors = np.asanyarray(color_frame.get_data())  # Kolory z kamery RGB
+            # Convert point cloud data to NumPy arrays
+            vertices = np.asanyarray(pointcloud.get_vertices())  # XYZ coordinates
+            colors = np.asanyarray(color_frame.get_data())       # RGB colors
 
-            # Tworzymy chmurę punktów Open3D
-            points = np.array([ [point[0], point[1], point[2]] for point in vertices])  # Współrzędne punktów
+            # Create Open3D point cloud
+            points = np.array([[point[0], point[1], point[2]] for point in vertices])  # XYZ
             pcd = o3d.geometry.PointCloud()
             pcd.points = o3d.utility.Vector3dVector(points)
 
-            # Normalizacja kolorów (z zakresu [0, 255] do [0, 1])
-            rgb = colors.reshape(-1, 3) / 255.0
+            # Normalize and assign colors
+            rgb = colors.reshape(-1, 3) / 255.0  # Normalize RGB to [0,1]
             pcd.colors = o3d.utility.Vector3dVector(rgb)
 
-            # Zapisujemy chmurę punktów do pliku PLY
+            # Save the point cloud to a PLY file
             o3d.io.write_point_cloud(output_ply_filename, pcd)
-            print(f"Chmura punktów zapisana do {output_ply_filename}")
+            print(f"Point cloud saved to {output_ply_filename}")
 
     finally:
-        # Zatrzymanie pipeline po zakończeniu
+        # Stop the pipeline after capturing
         pipeline.stop()
 
+
 if __name__ == "__main__":
-    # Ścieżki plików
+    # File paths for saving point cloud and intrinsic parameters
     output_ply_filename = "point_cloud.ply"
     output_json_filename = "intrinsics.json"
-    duration = 10  # Czas w sekundach, przez jaki program ma zbierać dane
+    duration = 10  # Duration in seconds to capture data
 
-    # Wywołanie funkcji
+    # Execute the capture and processing function
     capture_and_process_intrinsics(output_ply_filename, output_json_filename, duration)
