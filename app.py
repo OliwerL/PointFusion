@@ -26,7 +26,8 @@ from stereo_zed import stereo_calibrate, calculate_translation_distance, calcula
 from zed_sn import capture_zed_camera, open_zed_camera
 from merge_point_clouds_icp import algorithm
 from cloud_cleaning import remove_isolated_points
-
+from get_D435f_bag import capture_and_process_intrinsics
+from get_ZED_point_cloud import start_zed_cameras
 
 
 class PointCloudApp(QMainWindow):
@@ -145,16 +146,27 @@ class PointCloudApp(QMainWindow):
             self.merge_clouds_button.clicked.connect(self.start_merge_point_clouds)
             layout.addWidget(self.merge_clouds_button)
 
+            self.download_param_realsense = QPushButton("Pobierz chmure wraz z parametrami")
+            self.download_param_realsense.setFont(button_font)
+            self.download_param_realsense.clicked.connect(self.get_cloud_and_intristics_realsense)
+            layout.addWidget(self.download_param_realsense)
+
         self.change_granularity_button = QPushButton("Zmień granulację chmury punktów")
         self.change_granularity_button.setFont(button_font)
         self.change_granularity_button.clicked.connect(self.start_change_granularity)
         layout.addWidget(self.change_granularity_button)
 
         if self.camera_type == 0:
+
             self.merge_clouds_icp_button = QPushButton("Połącz chmury punktów z ICP")
             self.merge_clouds_icp_button.setFont(button_font)
             self.merge_clouds_icp_button.clicked.connect(self.start_merge_point_clouds_with_icp)
             layout.addWidget(self.merge_clouds_icp_button)
+
+            self.download_param_zed = QPushButton("Pobierz chmure wraz z parametrami")
+            self.download_param_zed.setFont(button_font)
+            self.download_param_zed.clicked.connect(self.get_cloud_and_intriscs_zed)
+            layout.addWidget(self.download_param_zed)
 
         self.processing_tab.setLayout(layout)
 
@@ -725,6 +737,48 @@ class PointCloudApp(QMainWindow):
         # Zaktualizuj pasek stanu
         self.status_bar.showMessage(f"Chmura punktów została przefiltrowana i zapisana do {output_file}")
 
+
+    def get_cloud_and_intristics_realsense(self):
+
+        output_ply_filename, _ = QFileDialog.getSaveFileName(self, "Zapisz chmurę punktów (PLY)", "",
+                                                     "PLY Files (*.ply)",
+                                                     options=QFileDialog.Option(QFileDialog.DontUseNativeDialog))
+        if not output_ply_filename.lower().endswith(".ply"):
+            output_ply_filename += ".ply"
+        if not output_ply_filename:
+            return
+
+        json1, _ = QFileDialog.getSaveFileName(self, "Zapisz plik JSON dla kamery RealSense", "",
+                                               "JSON Files (*.json)",
+                                               options=QFileDialog.Option(QFileDialog.DontUseNativeDialog))
+        json1, _ = QFileDialog.getSaveFileName(self, "Zapisz plik JSON dla kamery ZED", "",
+                                               "JSON Files (*.json)",
+                                               options=QFileDialog.Option(QFileDialog.DontUseNativeDialog))
+        if not json1.lower().endswith(".json"):
+            json1 += ".json"
+        if not json1:
+            return
+        capture_and_process_intrinsics(output_ply_filename,json1)
+    def get_cloud_and_intriscs_zed(self):
+
+        output_ply_filename, _ = QFileDialog.getSaveFileName(self, "Zapisz chmurę punktów (PLY)", "",
+                                                             "PLY Files (*.ply)",
+                                                             options=QFileDialog.Option(
+                                                                 QFileDialog.DontUseNativeDialog))
+        if not output_ply_filename.lower().endswith(".ply"):
+            output_ply_filename += ".ply"
+        if not output_ply_filename:
+            return
+
+
+        json1, _ = QFileDialog.getSaveFileName(self, "Zapisz plik JSON dla kamery ZED", "",
+                                               "JSON Files (*.json)",
+                                               options=QFileDialog.Option(QFileDialog.DontUseNativeDialog))
+        if not json1.lower().endswith(".json"):
+            json1 += ".json"
+        if not json1:
+            return
+        start_zed_cameras(output_ply_filename, json1)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

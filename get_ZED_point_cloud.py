@@ -87,7 +87,7 @@ def save_and_display_point_cloud(zed, filename, intrinsics_filename):
         print("Błąd podczas grabowania obrazu z kamery.")
 
 
-def start_zed_cameras():
+def start_zed_cameras(filename, intrinsics_filename):
     # Inicjalizacja kamery ZED
     zed = sl.Camera()
 
@@ -107,9 +107,6 @@ def start_zed_cameras():
     # Czekaj chwilę, aby kamera miała czas na inicjalizację
     time.sleep(1)
 
-    # Pobranie i zapisanie chmury punktów oraz parametrów intrystycznych
-    filename = "point_cloud.ply"  # Możesz zmienić nazwę i format pliku
-    intrinsics_filename = "intrinsics.json"  # Plik z zapisanymi parametrami intrystycznymi
     save_and_display_point_cloud(zed, filename, intrinsics_filename)
 
     # Zamykanie kamery
@@ -117,4 +114,6 @@ def start_zed_cameras():
 
 
 if __name__ == "__main__":
-    start_zed_cameras()
+    filename = "point_cloud.ply"  # Możesz zmienić nazwę i format pliku
+    intrinsics_filename = "intrinsics.json"  # Plik z zapisanymi parametrami intrystycznymi
+    start_zed_cameras(filename,intrinsics_filename)
