@@ -29,14 +29,22 @@ def capture_camera(camera_index, folder_name):
 
     # Release camera resources
     vidcap.release()
-    cv2.destroyAllWindows()
+    cv2.destroyWindow(f'Preview Camera {camera_index}')
 
 # Captures photos from multiple cameras simultaneously and saves them to the specified folder.
 def multi_camera(camera_indices, folder_name):
     # Create folder if it doesn't exist
-    if not os.path.exists(folder_name):
-        os.makedirs(folder_name)
-        print(f"Folder '{folder_name}' created.")
+
+    folder1_name = f"{folder_name}_cam{camera_indices[0]}"
+    folder2_name = f"{folder_name}_cam{camera_indices[1]}"
+
+    if not os.path.exists(folder1_name):
+        os.makedirs(folder1_name)
+        print(f"Folder '{folder1_name}' created.")
+
+    if not os.path.exists(folder2_name):
+        os.makedirs(folder2_name)
+        print(f"Folder '{folder2_name}' created.")
 
     # List to hold threads
     threads = []

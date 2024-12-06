@@ -4,7 +4,6 @@ import numpy as np
 import time
 import json
 
-
 # Saves ZED camera intrinsic parameters to a JSON file.
 def save_intrinsics_to_json(zed, filename):
     # Retrieve intrinsic parameters from the left camera
@@ -30,57 +29,54 @@ def save_intrinsics_to_json(zed, filename):
 
 # Saves the point cloud captured by the ZED camera to a .ply file and displays it.
 def save_and_display_point_cloud(zed, filename, intrinsics_filename):
-    # Create a matrix to store the point cloud
+    print("Saving and displaying Point Cloud...")
+
+    # Stworzenie obiektu do przechowywania chmury punktów
     point_cloud = sl.Mat()
 
-    # Capture a frame and retrieve the point cloud in XYZRGBA format
+    # Pobranie chmury punktów (w formacie XYZRGBA)
     if zed.grab() == sl.ERROR_CODE.SUCCESS:
         zed.retrieve_measure(point_cloud, sl.MEASURE.XYZRGBA)
 
-        # Check if the point cloud contains data
+        # Sprawdzenie, czy chmura punktów zawiera dane
         if point_cloud.is_init():
-            num_points = point_cloud.get_width() * point_cloud.get_height()
-            print(f"Point cloud contains {num_points} points.")
+            print(f"Chmura punktów zawiera {point_cloud.get_width() * point_cloud.get_height()} punktów.")
 
-            # Save the point cloud to a file (e.g., .ply format)
+            # Zapisanie chmury punktów do pliku (np. w formacie .ply)
             success = point_cloud.write(filename)
             if success == sl.ERROR_CODE.SUCCESS:
                 print(f"Point cloud saved to {filename}")
             else:
                 print("Failed to save point cloud.")
 
-            # Convert ZED point cloud (sl.Mat) to NumPy array
+            # Konwersja chmury punktów ZED (sl.Mat) na numpy array
             point_cloud_data = point_cloud.get_data()
 
-            # Reshape data for Open3D
+            # Przekształcenie danych RGB i XYZ do numpy array
             point_cloud_np = np.array(point_cloud_data, dtype=np.float32).reshape((-1, 4))
-            points = point_cloud_np[:, :3]  # XYZ coordinates
-            colors = point_cloud_np[:, 3:]  # RGBA colors
+            points = point_cloud_np[:, :3]  # XYZ
+            colors = point_cloud_np[:, 3:]  # RGBA
 
-            # Remove NaN or Inf values from colors
+            # Usunięcie wartości NaN lub Inf z kolorów
             valid_colors = np.isfinite(colors)
             points = points[valid_colors.all(axis=1)]
             colors = colors[valid_colors.all(axis=1)]
 
-            # Normalize colors to [0,1]
+            # Normalizacja kolorów do zakresu [0, 1]
             colors = np.clip(colors / 255.0, 0, 1)
 
-            # Create Open3D point cloud object
+            # Tworzenie obiektu chmury punktów w Open3D
             o3d_pc = o3d.geometry.PointCloud()
             o3d_pc.points = o3d.utility.Vector3dVector(points)
             o3d_pc.colors = o3d.utility.Vector3dVector(colors)
 
-            # Visualize the point cloud
+            # Wyświetlenie chmury punktów
             o3d.visualization.draw_geometries([o3d_pc])
 
-            # Save intrinsic parameters to JSON file
-            save_intrinsics_to_json(zed, intrinsics_filename)
-
         else:
-            print("Failed to retrieve point cloud data.")
+            print("Nie udało się pobrać chmury punktów.")
     else:
-        print("Error grabbing image from camera.")
-
+        print("Błąd podczas grabowania obrazu z kamery.")
 # Initializes the ZED camera, captures the point cloud, and saves intrinsic parameters
 def start_zed_cameras(filename, intrinsics_filename):
     # Initialize ZED camera
@@ -96,7 +92,6 @@ def start_zed_cameras(filename, intrinsics_filename):
     if zed.open(init_params) != sl.ERROR_CODE.SUCCESS:
         print("Failed to open ZED camera.")
         exit(1)
-
 
     # Allow the camera to initialize
     time.sleep(1)

@@ -202,10 +202,7 @@ class PointCloudApp(QMainWindow):
             layout.addWidget(self.multi_camera_button)
 
         if self.camera_type == 0:  # ZED
-            self.single_zed_button = QPushButton("Start Single ZED Camera")
-            self.single_zed_button.setFont(button_font)
-            self.single_zed_button.clicked.connect(self.start_single_zed_camera)
-            layout.addWidget(self.single_zed_button)
+
 
             self.dual_zed_button = QPushButton("Start Dual ZED Cameras")
             self.dual_zed_button.setFont(button_font)
@@ -286,7 +283,7 @@ class PointCloudApp(QMainWindow):
 
         QMessageBox.information(self, "Information", "Press 's' to save a photo\nPress 'ESC' to exit camera preview")
 
-        camera_index, ok = QInputDialog.getInt(self, "Camera Index", "Enter camera index (e.g., 0, 1, 2):", min=0)
+        camera_index, ok = QInputDialog.getInt(self, "Camera Index", "Enter camera index (e.g., 0, 1, 2):")
         if not ok:
             return
 
@@ -633,37 +630,6 @@ class PointCloudApp(QMainWindow):
             QMessageBox.critical(self, "Error", f"An error occurred: {e}")
 
     # Starts capturing from a single ZED camera based on user input.
-    def start_single_zed_camera(self):
-
-        # Get the serial number of the camera
-        serial, ok = QInputDialog.getInt(self, "Camera Serial Number", "Enter the serial number of the ZED camera:")
-        if not ok:
-            return
-
-        # Optionally disable depth mode
-        disable_depth, ok = QInputDialog.getItem(
-            self,
-            "Depth Mode",
-            "Do you want to disable depth mode?",
-            ["No", "Yes"],
-            0,
-            False,
-        )
-        if not ok:
-            return
-
-        disable_depth_flag = disable_depth == "Yes"
-
-        # Create folder for saved images
-        base_name, ok = QInputDialog.getText(self, "Folder Name", "Enter the main folder name for images:")
-        if not ok or not base_name:
-            return
-
-        main_folder = os.path.join(base_name, "ZED_Captures")
-        os.makedirs(main_folder, exist_ok=True)
-
-        # Start the camera in a separate thread
-        threading.Thread(target=capture_zed_camera, args=(serial, main_folder, disable_depth_flag)).start()
 
     # Starts capturing from dual ZED cameras.
     def start_dual_zed_cameras(self):
@@ -764,9 +730,6 @@ class PointCloudApp(QMainWindow):
             return
 
         json1, _ = QFileDialog.getSaveFileName(self, "Save JSON File for RealSense Camera", "",
-                                               "JSON Files (*.json)",
-                                               options=QFileDialog.Option(QFileDialog.DontUseNativeDialog))
-        json2, _ = QFileDialog.getSaveFileName(self, "Save JSON File for ZED Camera", "",
                                                "JSON Files (*.json)",
                                                options=QFileDialog.Option(QFileDialog.DontUseNativeDialog))
         if not json1.lower().endswith(".json"):
