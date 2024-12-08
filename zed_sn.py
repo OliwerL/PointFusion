@@ -54,13 +54,15 @@ def capture_zed_camera(serial_number, main_folder, disable_depth=False):
             left_image_np = left_image.get_data()
 
             # Display the image in a window
-            cv2.imshow(f"ZED Camera {serial_number} - Left Lens", left_image_np)
+            window_name = f"ZED Camera {serial_number} - Left Lens"
+            cv2.imshow(window_name, left_image_np)
 
             # Handle key events
             k = cv2.waitKey(5)
             if k == 27:
-                # ESC key pressed, exit the loop
+                # ESC key pressed, exit the loop and close the window
                 close_value = False
+                cv2.destroyWindow(window_name)  # Close only the current camera window
             elif k == ord('s'):
                 # 's' key pressed, save the current frame as an image
                 image_path = os.path.join(camera_folder, f'img{n}.png')
@@ -68,18 +70,13 @@ def capture_zed_camera(serial_number, main_folder, disable_depth=False):
                 print(f"Image {n} from ZED camera {serial_number} saved to {image_path}")
                 n += 1
 
-    # Release camera resources and close all OpenCV windows
+    # Release camera resources
     zed.close()
-    cv2.destroyAllWindows()
 
 
 # Opens and captures images from all detected ZED cameras
 def open_zed_camera(main_folder):
     zed_serial_numbers = get_zed_serial_numbers()
-
-    if len(zed_serial_numbers) < 2:
-        print("Less than two ZED cameras found. Ensure that two ZED cameras are connected.")
-        return
 
     # Define the main folder for saving images
     if not os.path.exists(main_folder):
