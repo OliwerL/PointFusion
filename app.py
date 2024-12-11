@@ -11,22 +11,31 @@ from PySide6.QtGui import QWindow
 from PySide6.QtGui import QFont
 import win32gui
 import open3d as o3d  # Make sure to import open3d if used
-from cloud_filtering import filter_point_cloud
+from Dependencies.cloud_filtering import filter_point_cloud
 
 # Import functions from files
-from bag_to_ply import extract_point_cloud_from_bag, convert_to_open3d_point_cloud, save_point_cloud_to_ply
-from photo import capture_photos
-from multiphoto import multi_camera
-from parameters import get_intrinsics_from_bag
-from merge_clouds import load_point_cloud, apply_transformation, merge_point_clouds, load_calibration_data
-from granularity import change_granularity_of_point_cloud
-from stereo import load_intrinsics, stereo_calibrate, calculate_translation_distance, calculate_rotation_angle
-from stereo_zed import stereo_calibrate, calculate_translation_distance, calculate_rotation_angle, load_intrinsics_from_conf
-from zed_sn import capture_zed_camera, open_zed_camera
-from merge_point_clouds_icp import algorithm
-from cloud_cleaning import remove_isolated_points
-from get_D435f_bag import capture_and_process_intrinsics
-from get_ZED_point_cloud import start_zed_cameras
+from Dependencies.bag_to_ply import extract_point_cloud_from_bag, convert_to_open3d_point_cloud, save_point_cloud_to_ply
+from Dependencies.photo import capture_photos
+from Dependencies.multiphoto import multi_camera
+from Dependencies.parameters import get_intrinsics_from_bag
+from Dependencies.merge_clouds import load_point_cloud, apply_transformation, merge_point_clouds, load_calibration_data
+from Dependencies.granularity import change_granularity_of_point_cloud
+from Dependencies.stereo import load_intrinsics, stereo_calibrate, calculate_translation_distance, calculate_rotation_angle
+from Dependencies.stereo_zed import stereo_calibrate, calculate_translation_distance, calculate_rotation_angle, load_intrinsics_from_conf
+from Dependencies.zed_sn import capture_zed_camera, open_zed_camera
+from Dependencies.merge_point_clouds_icp import algorithm
+from Dependencies.cloud_cleaning import remove_isolated_points
+from Dependencies.get_D435f_bag import capture_and_process_intrinsics
+from Dependencies.get_ZED_point_cloud import start_zed_cameras
+
+def resource_path(relative_path):
+    try:
+        # If the app is run as a bundle
+        base_path = sys._MEIPASS
+    except Exception:
+        # If the app is run as a script
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
 
 
 class PointCloudApp(QMainWindow):
@@ -63,7 +72,8 @@ class PointCloudApp(QMainWindow):
         main_layout.addWidget(self.tabs, stretch=1)
 
         # Configure Open3D on the right side
-        self.pcd = o3d.io.read_point_cloud("filtered_output.ply")  # Default loaded point cloud
+        filtered_file_path = resource_path("filtered_output_change.ply")
+        self.pcd = o3d.io.read_point_cloud(filtered_file_path)
         self.vis = o3d.visualization.Visualizer()
         self.vis.create_window()
         self.vis.add_geometry(self.pcd)
@@ -574,15 +584,15 @@ class PointCloudApp(QMainWindow):
     def start_zed_stereo_calibration(self):
 
         left_conf, _ = QFileDialog.getOpenFileName(self, "Select .conf File for Left Camera", "",
-                                                   "CONF Files (*.conf)")
+                                                   "CONF Files (*.conf)", options=QFileDialog.Option(QFileDialog.DontUseNativeDialog))
         right_conf, _ = QFileDialog.getOpenFileName(self, "Select .conf File for Right Camera", "",
-                                                    "CONF Files (*.conf)")
+                                                    "CONF Files (*.conf)", options=QFileDialog.Option(QFileDialog.DontUseNativeDialog))
         if not left_conf or not right_conf:
             QMessageBox.critical(self, "Error", "No .conf files selected for both cameras.")
             return
 
-        images1_folder = QFileDialog.getExistingDirectory(self, "Select Image Folder for Left Camera")
-        images2_folder = QFileDialog.getExistingDirectory(self, "Select Image Folder for Right Camera")
+        images1_folder = QFileDialog.getExistingDirectory(self, "Select Image Folder for Left Camera", options=QFileDialog.Option(QFileDialog.DontUseNativeDialog))
+        images2_folder = QFileDialog.getExistingDirectory(self, "Select Image Folder for Right Camera", options=QFileDialog.Option(QFileDialog.DontUseNativeDialog))
         if not images1_folder or not images2_folder:
             QMessageBox.critical(self, "Error", "No image folders selected.")
             return
@@ -751,14 +761,14 @@ class PointCloudApp(QMainWindow):
         if not output_ply_filename:
             return
 
-        json1, _ = QFileDialog.getSaveFileName(self, "Save JSON File for ZED Camera", "",
-                                               "JSON Files (*.json)",
+        conf1, _ = QFileDialog.getSaveFileName(self, "Save CONF File for ZED Camera", "",
+                                               "CONF Files (*.conf)",
                                                options=QFileDialog.Option(QFileDialog.DontUseNativeDialog))
-        if not json1.lower().endswith(".json"):
-            json1 += ".json"
-        if not json1:
+        if not conf1.lower().endswith(".json"):
+            conf1 += ".json"
+        if not conf1:
             return
-        start_zed_cameras(output_ply_filename, json1)
+        start_zed_cameras(output_ply_filename, conf1)
 
 
 if __name__ == "__main__":
